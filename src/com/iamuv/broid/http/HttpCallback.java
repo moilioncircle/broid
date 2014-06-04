@@ -2,6 +2,7 @@ package com.iamuv.broid.http;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.List;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -28,13 +29,11 @@ public abstract class HttpCallback<Result> {
 	@SuppressWarnings("unchecked")
 	public HttpCallback() {
 		mHandler = currentHandler();
-		ParameterizedType type = (ParameterizedType) this.getClass().getGenericSuperclass();
-		if (type != null) {
-			Type[] types = type.getActualTypeArguments();
-			if (types.length > 0) {
-				mType = (Class<Result>) types[0];
-			}
+		try {
+			mType = (Class<Result>) ((ParameterizedType) this.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+		} catch (Exception e) {
 		}
+
 	}
 
 	protected abstract void onComplete(Result result);
@@ -49,19 +48,37 @@ public abstract class HttpCallback<Result> {
 	}
 
 	@SuppressWarnings("unchecked")
-	protected final void complete(String result) {
+	protected Result processResult(String resultStr) throws Exception {
+		Result result = null;
 		try {
 			if (mType == null) {
 				throw new Exception("can not find the generic class type");
 			}
-			if (result == null)
+			if (resultStr == null)
 				throw new Exception("result is null");
 			if (String.class == mType) {
-				mResult = (Result) result;
+				result = (Result) resultStr;
+			} else if (List.class.isAssignableFrom(mType)) {
+				Type type = ((ParameterizedType) mType.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+				if (type != null) {
+					result = (Result) JSON.parseArray(resultStr, (Class<?>) type);
+				} else
+					throw new Exception("can not find the list generic class type");
 			} else
-				mResult = JSON.parseObject(result, mType);
-			if (mResult == null)
+				result = JSON.parseObject(resultStr, mType);
+			if (result == null)
 				throw new Exception("can not format result");
+		} catch (Exception e) {
+			Log.w(Broid.TAG, null, e);
+			throw e;
+		}
+		return result;
+
+	}
+
+	protected final void complete(String result) {
+		try {
+			mResult = processResult(result);
 			if (mHandler != null) {
 				mHandler.post(new Runnable() {
 
