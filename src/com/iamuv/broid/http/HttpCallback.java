@@ -32,6 +32,7 @@ public abstract class HttpCallback<Result> {
 		try {
 			mType = (Class<Result>) ((ParameterizedType) this.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
 		} catch (Exception e) {
+			mType = null;
 		}
 
 	}
