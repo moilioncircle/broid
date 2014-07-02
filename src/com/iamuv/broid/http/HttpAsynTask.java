@@ -1,3 +1,18 @@
+/*
+ * Copyright (C) 2014 The Broid Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.iamuv.broid.http;
 
 import java.util.concurrent.ExecutorService;
@@ -9,39 +24,39 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import com.iamuv.broid.Broid;
 import com.iamuv.broid.Log;
+import com.iamuv.broid.utils.SystemUtils;
 
 public class HttpAsynTask {
 
-	private final ThreadFactory mThreadFactory;
+    private final ThreadFactory mThreadFactory;
 
-	private final ExecutorService mExecutorService;
+    private final ExecutorService mExecutorService;
 
-	private static final int CORE_POOL_SIZE = (int) Math.pow(Broid.getCPUCount() + 1, 2);
+    public HttpAsynTask() {
+	mThreadFactory = new HttpThreadFactory();
+	int size = SystemUtils.getDefaultThreadPoolSize(8);
+	Log.i(Broid.TAG, "the http core pool size is " + size, null);
+	mExecutorService = new ThreadPoolExecutor(size, size, 0L, TimeUnit.MILLISECONDS,
+		new LinkedBlockingQueue<Runnable>(), mThreadFactory);
 
-	public HttpAsynTask() {
-		mThreadFactory = new HttpThreadFactory();
-		Log.i(Broid.TAG, "the http core pool size is " + CORE_POOL_SIZE, null);
-		mExecutorService = new ThreadPoolExecutor(CORE_POOL_SIZE, CORE_POOL_SIZE, 0L, TimeUnit.MILLISECONDS,
-				new LinkedBlockingQueue<Runnable>(), mThreadFactory);
+    }
 
+    public final <T> Http<T> submit(T entry, HttpCallback<?> callback) {
+	final Http<T> http = new Http<T>(entry, callback);
+	mExecutorService.execute(http.getTask());
+	return http;
+    }
+
+    class HttpThreadFactory implements ThreadFactory {
+
+	private final AtomicInteger mCount = new AtomicInteger(1);
+
+	@Override
+	public Thread newThread(Runnable r) {
+	    Thread thread = new Thread(r, "http thread #" + mCount.getAndIncrement());
+	    Log.d(Broid.TAG, thread.getName() + " create", null);
+	    return thread;
 	}
-
-	public final <T> Http<T> submit(T httpRequest, HttpCallback<?> callback) {
-		final Http<T> http = new Http<T>(httpRequest, callback);
-		mExecutorService.execute(http.getTask());
-		return http;
-	}
-
-	class HttpThreadFactory implements ThreadFactory {
-
-		private final AtomicInteger mCount = new AtomicInteger(1);
-
-		@Override
-		public Thread newThread(Runnable r) {
-			Thread thread = new Thread(r, "http thread #" + mCount.getAndIncrement());
-			Log.d(Broid.TAG, thread.getName() + " create", null);
-			return thread;
-		}
-	}
+    }
 
 }
