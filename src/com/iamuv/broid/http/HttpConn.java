@@ -109,7 +109,7 @@ public class HttpConn {
 	    HttpPost request = new HttpPost();
 	    Log.d(Broid.TAG, "request url is\r\n" + mEntry.getUrl(), null);
 	    request.setURI(new URI(mEntry.getUrl()));
-	    if (EmptyUtils.isEmpty(mEntry.getParams())) {
+	    if (!EmptyUtils.isEmpty(mEntry.getParams())) {
 		request.setEntity(new UrlEncodedFormEntity(mEntry.getParams()));
 	    }
 	    HttpResponse response = mHttpClient.execute(request);
