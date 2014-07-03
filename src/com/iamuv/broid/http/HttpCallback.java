@@ -87,6 +87,7 @@ public abstract class HttpCallback<Result> {
 
     @SuppressWarnings("unchecked")
     protected Result processResult(String resultStr) throws Exception {
+	Log.d("result is\r\n" + resultStr);
 	Result result = null;
 	try {
 	    if (mType == null)
