@@ -18,7 +18,6 @@ package com.iamuv.broid.http;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -30,6 +29,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.CoreProtocolPNames;
+import org.apache.http.util.EntityUtils;
 
 import com.iamuv.broid.Broid;
 import com.iamuv.broid.Log;
@@ -69,9 +69,9 @@ public class HttpConn {
 	Log.i(Broid.TAG, "http get start", null);
 	mResult = null;
 	try {
-	    HttpGet httpGet = new HttpGet();
 	    final String uri = mEntry.getUrl() + mEntry.getParamsStr();
 	    Log.d(Broid.TAG, "request url is\r\n" + uri, null);
+	    HttpGet httpGet = new HttpGet();
 	    httpGet.setURI(new URI(uri));
 	    HttpResponse httpResponse = mHttpClient.execute(httpGet);
 	    mInputStreamReader = new InputStreamReader(httpResponse.getEntity().getContent());
@@ -113,18 +113,11 @@ public class HttpConn {
 		request.setEntity(new UrlEncodedFormEntity(mEntry.getParams()));
 	    }
 	    HttpResponse response = mHttpClient.execute(request);
-	    mInputStreamReader = new InputStreamReader(response.getEntity().getContent());
-	    mBufferedReader = new BufferedReader(mInputStreamReader);
-	    mStringBuffer = new StringBuffer("");
-	    String line = null;
-	    while ((line = mBufferedReader.readLine()) != null && !mEntry.isInterrupt()) {
-		mStringBuffer.append(line);
+	    if (response.getStatusLine().getStatusCode() == 200) {
+		if (!mEntry.isInterrupt())
+		    mResult = EntityUtils.toString(response.getEntity());
 	    }
-	    if (!mEntry.isInterrupt())
-		mResult = mStringBuffer.toString();
 	} catch (URISyntaxException e) {
-	    Log.w(Broid.TAG, null, e);
-	} catch (UnsupportedEncodingException e) {
 	    Log.w(Broid.TAG, null, e);
 	} catch (IOException e) {
 	    throw e;

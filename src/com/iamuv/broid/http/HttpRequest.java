@@ -45,7 +45,7 @@ public class HttpRequest {
     private String mParamsStr;
 
     private UUID id;
-    
+
     private volatile boolean interrupt;
 
     public RequestMethod getMode() {
@@ -91,11 +91,11 @@ public class HttpRequest {
     public enum RequestMethod {
 	GET, POST;
     }
-    
+
     public void interrupt() {
 	interrupt = true;
     }
-    
+
     public boolean isInterrupt() {
 	return interrupt;
     }
@@ -125,9 +125,9 @@ public class HttpRequest {
 		} else
 		    encode = entry.charset();
 		connTimeOut = entry.connectionTimeout() > HttpRequest.MAX_CONNECTION_TIMEOUT ? HttpRequest.MAX_CONNECTION_TIMEOUT
-			: entry.connectionTimeout();
+		    : entry.connectionTimeout();
 		soTimeOut = entry.socketTimeout() > HttpRequest.MAX_SOCKET_TIMEOUT ? HttpRequest.MAX_SOCKET_TIMEOUT
-			: entry.connectionTimeout();
+		    : entry.connectionTimeout();
 		cache = entry.cache();
 		builder = new StringBuilder("");
 		mParams = new ArrayList<BasicNameValuePair>();
@@ -162,7 +162,7 @@ public class HttpRequest {
 		throw new Exception("http url is null");
 	    builder = new StringBuilder();
 	    builder.append(getUrl()).append(getParamsStr()).append(getMode()).append(getConnTimeOut())
-		    .append(getSoTimeOut()).append(getEncode()).append(getSession());
+		.append(getSoTimeOut()).append(getEncode()).append(getSession());
 	    id = UUID.nameUUIDFromBytes(builder.toString().getBytes("UTF-8"));
 	} catch (Exception e) {
 	    throw new RuntimeException(e);
