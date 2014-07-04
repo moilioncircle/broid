@@ -27,6 +27,7 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.CoreProtocolPNames;
 import org.apache.http.util.EntityUtils;
@@ -111,6 +112,12 @@ public class HttpConn {
 	    request.setURI(new URI(mEntry.getUrl()));
 	    if (!EmptyUtils.isEmpty(mEntry.getParams())) {
 		request.setEntity(new UrlEncodedFormEntity(mEntry.getParams()));
+		if (Broid.getDebugMode()) {
+		    Log.d(Broid.TAG, "request entity is\r\n", null);
+		    for (BasicNameValuePair param : mEntry.getParams()) {
+			Log.d(Broid.TAG, param.getName() + " : " + param.getValue(), null);
+		    }
+		}
 	    }
 	    HttpResponse response = mHttpClient.execute(request);
 	    if (response.getStatusLine().getStatusCode() == 200) {
