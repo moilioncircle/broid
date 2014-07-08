@@ -54,8 +54,8 @@ public class HttpConn {
 	mHttpClient.getParams().setParameter(CoreConnectionPNames.CONNECTION_TIMEOUT, mEntry.getConnTimeOut());
 	Log.d(Broid.TAG, "so timeout is " + mEntry.getSoTimeOut(), null);
 	mHttpClient.getParams().setParameter(CoreConnectionPNames.SO_TIMEOUT, mEntry.getSoTimeOut());
-	Log.d(Broid.TAG, "encode is " + mEntry.getEncode(), null);
-	mHttpClient.getParams().setParameter(CoreProtocolPNames.HTTP_CONTENT_CHARSET, mEntry.getEncode());
+	Log.d(Broid.TAG, "charset is " + mEntry.getCharset(), null);
+	mHttpClient.getParams().setParameter(CoreProtocolPNames.HTTP_CONTENT_CHARSET, mEntry.getCharset());
     }
 
     public String exec() throws IOException {
@@ -111,7 +111,7 @@ public class HttpConn {
 	    Log.d(Broid.TAG, "request url is\r\n" + mEntry.getUrl(), null);
 	    request.setURI(new URI(mEntry.getUrl()));
 	    if (!EmptyUtils.isEmpty(mEntry.getParams())) {
-		request.setEntity(new UrlEncodedFormEntity(mEntry.getParams()));
+		request.setEntity(new UrlEncodedFormEntity(mEntry.getParams(), mEntry.getCharset()));
 		if (Broid.getDebugMode()) {
 		    Log.d(Broid.TAG, "request entity is\r\n", null);
 		    for (BasicNameValuePair param : mEntry.getParams()) {

@@ -38,8 +38,8 @@ public class HttpRequest {
     private int connTimeOut;
     private int soTimeOut;
     private boolean cache;
-    private String encode;
     private long session;
+    private String charset;
 
     private ArrayList<BasicNameValuePair> mParams;
     private String mParamsStr;
@@ -72,12 +72,12 @@ public class HttpRequest {
 	return soTimeOut;
     }
 
-    public boolean isCache() {
-	return cache;
+    public String getCharset() {
+	return charset;
     }
 
-    public String getEncode() {
-	return encode;
+    public boolean isCache() {
+	return cache;
     }
 
     public long getSession() {
@@ -121,9 +121,9 @@ public class HttpRequest {
 		} else
 		    throw new Exception("can not read the mode '" + entry.mode() + "'");
 		if (TextUtils.isEmpty(entry.charset())) {
-		    encode = "UTF-8";
+		    charset = "UTF-8";
 		} else
-		    encode = entry.charset();
+		    charset = entry.charset();
 		connTimeOut = entry.connectionTimeout() > HttpRequest.MAX_CONNECTION_TIMEOUT ? HttpRequest.MAX_CONNECTION_TIMEOUT
 		    : entry.connectionTimeout();
 		soTimeOut = entry.socketTimeout() > HttpRequest.MAX_SOCKET_TIMEOUT ? HttpRequest.MAX_SOCKET_TIMEOUT
@@ -147,7 +147,7 @@ public class HttpRequest {
 		    } else {
 			name = field.getName();
 			obj = field.get(c);
-			value = obj == null ? "" : String.valueOf(obj);
+			value = obj == null ? "" : new String(String.valueOf(obj).getBytes(), entry.charset());
 			pair = new BasicNameValuePair(name, value);
 			mParams.add(pair);
 			builder.append('&').append(name).append('=').append(value);
@@ -157,12 +157,12 @@ public class HttpRequest {
 		    builder.setCharAt(0, '?');
 		mParamsStr = builder.toString();
 	    } else
-		throw new Exception("can not find the annotation 'HttpRequest'");
+		throw new Exception("can not find the annotation 'HttpRequestEntry'");
 	    if (TextUtils.isEmpty(url))
 		throw new Exception("http url is null");
 	    builder = new StringBuilder();
 	    builder.append(getUrl()).append(getParamsStr()).append(getMode()).append(getConnTimeOut())
-		.append(getSoTimeOut()).append(getEncode()).append(getSession());
+		.append(getSoTimeOut()).append(getCharset()).append(getSession());
 	    id = UUID.nameUUIDFromBytes(builder.toString().getBytes("UTF-8"));
 	} catch (Exception e) {
 	    throw new RuntimeException(e);
