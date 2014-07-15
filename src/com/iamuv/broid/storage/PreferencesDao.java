@@ -83,8 +83,6 @@ public class PreferencesDao<T> {
 	    if (Modifier.isStatic(fields[i].getModifiers()))
 		continue;
 	    mPair = fields[i].getAnnotation(PreferencesPair.class);
-	    if (mPair != null && mPair.ignore())
-		continue;
 	    fields[i].setAccessible(true);
 	    mFields.add(fields[i]);
 	}
@@ -96,24 +94,23 @@ public class PreferencesDao<T> {
 	    t = mType.newInstance();
 	    final Map<String, ?> all = mSharedPreferences.getAll();
 	    Object value;
-	    PreferencesPair preferenceField;
 	    for (int i = 0; i < mSize; i++) {
 		mFields.get(i).setAccessible(true);
-		preferenceField = mFields.get(i).getAnnotation(PreferencesPair.class);
+		mPair = mFields.get(i).getAnnotation(PreferencesPair.class);
 		value = all.get(mFields.get(i).getName());
 		if (boolean.class == mFields.get(i).getType()) {
 		    if (value == null) {
-			if (preferenceField != null && !TextUtils.isEmpty(preferenceField.value())) {
-			    value = Boolean.parseBoolean(preferenceField.value());
+			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
+			    value = Boolean.parseBoolean(mPair.value());
 			} else
 			    value = false;
 		    }
 		    mFields.get(i).setBoolean(t, Boolean.parseBoolean(String.valueOf(value)));
 		} else if (long.class == mFields.get(i).getType()) {
 		    if (value == null) {
-			if (preferenceField != null && !TextUtils.isEmpty(preferenceField.value())) {
+			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
 			    try {
-				value = Long.parseLong(preferenceField.value());
+				value = Long.parseLong(mPair.value());
 			    } catch (Exception e) {
 				value = 0;
 			    }
@@ -123,9 +120,9 @@ public class PreferencesDao<T> {
 		    mFields.get(i).setLong(t, Long.parseLong(String.valueOf(value)));
 		} else if (float.class == mFields.get(i).getType()) {
 		    if (value == null) {
-			if (preferenceField != null && !TextUtils.isEmpty(preferenceField.value())) {
+			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
 			    try {
-				value = Float.parseFloat(preferenceField.value());
+				value = Float.parseFloat(mPair.value());
 			    } catch (Exception e) {
 				value = 0;
 			    }
@@ -135,9 +132,9 @@ public class PreferencesDao<T> {
 		    mFields.get(i).setFloat(t, Float.parseFloat(String.valueOf(value)));
 		} else if (int.class == mFields.get(i).getType()) {
 		    if (value == null) {
-			if (preferenceField != null && !TextUtils.isEmpty(preferenceField.value())) {
+			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
 			    try {
-				value = Integer.parseInt(preferenceField.value());
+				value = Integer.parseInt(mPair.value());
 			    } catch (Exception e) {
 				value = 0;
 			    }
@@ -147,8 +144,8 @@ public class PreferencesDao<T> {
 		    mFields.get(i).setInt(t, Integer.parseInt(String.valueOf(value)));
 		} else if (String.class == mFields.get(i).getType()) {
 		    if (value == null) {
-			if (preferenceField != null && preferenceField.value() != null) {
-			    value = preferenceField.value();
+			if (mPair != null && mPair.value() != null) {
+			    value = mPair.value();
 			} else
 			    value = "";
 		    }

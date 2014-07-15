@@ -26,6 +26,4 @@ public @interface PreferencesPair {
     // 默认值
     public String value() default "";
 
-    public boolean ignore() default false;
-
 }
