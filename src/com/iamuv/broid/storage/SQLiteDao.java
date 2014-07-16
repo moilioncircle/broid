@@ -217,7 +217,6 @@ public class SQLiteDao<T> {
 	    Log.w(Broid.TAG, null, e);
 	} finally {
 	    mDatabase.close();
-
 	}
 	return false;
     }
