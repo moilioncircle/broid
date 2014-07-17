@@ -87,7 +87,7 @@ public abstract class HttpCallback<Result> {
 
     @SuppressWarnings("unchecked")
     protected Result processResult(String resultStr) throws Exception {
-	Log.d("result is\r\n" + resultStr);
+	Log.d(Broid.TAG, "result is\r\n" + resultStr, null);
 	Result result = null;
 	try {
 	    if (mType == null)
