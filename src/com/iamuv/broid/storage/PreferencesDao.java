@@ -41,147 +41,155 @@ import com.iamuv.broid.annotation.PreferencesPair;
  */
 public class PreferencesDao<T> {
 
-    private SharedPreferences mSharedPreferences;
+	private SharedPreferences mSharedPreferences;
 
-    private Class<T> mType;
+	private Class<T> mType;
 
-    private ArrayList<Field> mFields = new ArrayList<Field>();
+	private ArrayList<Field> mFields = new ArrayList<Field>();
 
-    private Preferences mPreferences;
+	private Preferences mPreferences;
 
-    private PreferencesPair mPair;
+	private PreferencesPair mPair;
 
-    private final int mSize;
+	private final int mSize;
 
-    public PreferencesDao(Class<T> cla) {
-	mType = cla;
-	initFields();
-	mSize = mFields.size();
-	if (mSize == 0) {
-	    Log.w(Broid.TAG, "can not find any fields in the class " + mType.getSimpleName(), null);
-	}
-	mPreferences = mType.getAnnotation(Preferences.class);
-	if (mPreferences != null) {
-	    String m = mPreferences.mode().toUpperCase(Locale.getDefault());
-	    int mode = 0x0000;
-	    if (m.indexOf("APPEND") > 0) {
-		mode = 0x8000;
-	    } else if (m.indexOf("MULTI") > 0) {
-		mode = 0x0004;
-	    } else if (m.indexOf("ENABLE") > 0) {
-		mode = 0x0008;
-	    }
-	    mSharedPreferences = Broid.getApplication().getSharedPreferences(mType.getSimpleName(), mode);
-	} else
-	    throw new DaoException("can not find the class with the annotation 'Preferences'");
-    }
+	private static final Object LOCK = new Object();
 
-    private void initFields() {
-	Field[] fields = mType.getDeclaredFields();
-	final int length = fields.length;
-	for (int i = 0; i < length; i++) {
-	    if (Modifier.isStatic(fields[i].getModifiers()))
-		continue;
-	    mPair = fields[i].getAnnotation(PreferencesPair.class);
-	    fields[i].setAccessible(true);
-	    mFields.add(fields[i]);
-	}
-    }
-
-    public final T get() {
-	T t = null;
-	try {
-	    t = mType.newInstance();
-	    final Map<String, ?> all = mSharedPreferences.getAll();
-	    Object value;
-	    for (int i = 0; i < mSize; i++) {
-		mFields.get(i).setAccessible(true);
-		mPair = mFields.get(i).getAnnotation(PreferencesPair.class);
-		value = all.get(mFields.get(i).getName());
-		if (boolean.class == mFields.get(i).getType()) {
-		    if (value == null) {
-			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
-			    value = Boolean.parseBoolean(mPair.value());
-			} else
-			    value = false;
-		    }
-		    mFields.get(i).setBoolean(t, Boolean.parseBoolean(String.valueOf(value)));
-		} else if (long.class == mFields.get(i).getType()) {
-		    if (value == null) {
-			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
-			    try {
-				value = Long.parseLong(mPair.value());
-			    } catch (Exception e) {
-				value = 0;
-			    }
-			} else
-			    value = 0;
-		    }
-		    mFields.get(i).setLong(t, Long.parseLong(String.valueOf(value)));
-		} else if (float.class == mFields.get(i).getType()) {
-		    if (value == null) {
-			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
-			    try {
-				value = Float.parseFloat(mPair.value());
-			    } catch (Exception e) {
-				value = 0;
-			    }
-			} else
-			    value = 0;
-		    }
-		    mFields.get(i).setFloat(t, Float.parseFloat(String.valueOf(value)));
-		} else if (int.class == mFields.get(i).getType()) {
-		    if (value == null) {
-			if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
-			    try {
-				value = Integer.parseInt(mPair.value());
-			    } catch (Exception e) {
-				value = 0;
-			    }
-			} else
-			    value = 0;
-		    }
-		    mFields.get(i).setInt(t, Integer.parseInt(String.valueOf(value)));
-		} else if (String.class == mFields.get(i).getType()) {
-		    if (value == null) {
-			if (mPair != null && mPair.value() != null) {
-			    value = mPair.value();
-			} else
-			    value = "";
-		    }
-		    mFields.get(i).set(t, String.valueOf(value));
+	public PreferencesDao(Class<T> cla) {
+		mType = cla;
+		initFields();
+		mSize = mFields.size();
+		if (mSize == 0) {
+			Log.w(Broid.TAG, "can not find any fields in the class " + mType.getSimpleName(), null);
 		}
-	    }
-	} catch (InstantiationException e) {
-	    Log.w(Broid.TAG, null, e);
-	} catch (IllegalAccessException e) {
-	    Log.w(Broid.TAG, null, e);
+		mPreferences = mType.getAnnotation(Preferences.class);
+		if (mPreferences != null) {
+			String m = mPreferences.mode().toUpperCase(Locale.getDefault());
+			int mode = 0x0000;
+			if (m.indexOf("APPEND") > 0) {
+				mode = 0x8000;
+			} else if (m.indexOf("MULTI") > 0) {
+				mode = 0x0004;
+			} else if (m.indexOf("ENABLE") > 0) {
+				mode = 0x0008;
+			}
+			String name = mPreferences.name();
+			if (TextUtils.isEmpty(name))
+				name = mType.getSimpleName();
+			mSharedPreferences = Broid.getApplication().getSharedPreferences(name, mode);
+		} else
+			throw new DaoException("can not find the class with the annotation 'Preferences'");
 	}
 
-	return t;
-    }
-
-    public final void save(T c) {
-	Editor editor = mSharedPreferences.edit();
-	for (int i = 0; i < mSize; i++) {
-	    try {
-		mFields.get(i).setAccessible(true);
-		if (boolean.class == mFields.get(i).getType()) {
-		    editor.putBoolean(mFields.get(i).getName(), mFields.get(i).getBoolean(c));
-		} else if (long.class == mFields.get(i).getType()) {
-		    editor.putLong(mFields.get(i).getName(), mFields.get(i).getLong(c));
-		} else if (float.class == mFields.get(i).getType()) {
-		    editor.putFloat(mFields.get(i).getName(), mFields.get(i).getFloat(c));
-		} else if (int.class == mFields.get(i).getType()) {
-		    editor.putInt(mFields.get(i).getName(), mFields.get(i).getInt(c));
-		} else if (String.class == mFields.get(i).getType()) {
-		    editor.putString(mFields.get(i).getName(), String.valueOf(mFields.get(i).get(c)));
+	private void initFields() {
+		Field[] fields = mType.getDeclaredFields();
+		final int length = fields.length;
+		for (int i = 0; i < length; i++) {
+			if (Modifier.isStatic(fields[i].getModifiers()))
+				continue;
+			mPair = fields[i].getAnnotation(PreferencesPair.class);
+			fields[i].setAccessible(true);
+			mFields.add(fields[i]);
 		}
-	    } catch (IllegalAccessException e) {
-		Log.w(Broid.TAG, null, e);
-	    }
 	}
-	editor.commit();
 
-    }
+	public final T get() {
+		synchronized (LOCK) {
+			T t = null;
+			try {
+				t = mType.newInstance();
+				final Map<String, ?> all = mSharedPreferences.getAll();
+				Object value;
+				for (int i = 0; i < mSize; i++) {
+					mFields.get(i).setAccessible(true);
+					mPair = mFields.get(i).getAnnotation(PreferencesPair.class);
+					value = all.get(mFields.get(i).getName());
+					if (boolean.class == mFields.get(i).getType()) {
+						if (value == null) {
+							if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
+								value = Boolean.parseBoolean(mPair.value());
+							} else
+								value = false;
+						}
+						mFields.get(i).setBoolean(t, Boolean.parseBoolean(String.valueOf(value)));
+					} else if (long.class == mFields.get(i).getType()) {
+						if (value == null) {
+							if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
+								try {
+									value = Long.parseLong(mPair.value());
+								} catch (Exception e) {
+									value = 0;
+								}
+							} else
+								value = 0;
+						}
+						mFields.get(i).setLong(t, Long.parseLong(String.valueOf(value)));
+					} else if (float.class == mFields.get(i).getType()) {
+						if (value == null) {
+							if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
+								try {
+									value = Float.parseFloat(mPair.value());
+								} catch (Exception e) {
+									value = 0;
+								}
+							} else
+								value = 0;
+						}
+						mFields.get(i).setFloat(t, Float.parseFloat(String.valueOf(value)));
+					} else if (int.class == mFields.get(i).getType()) {
+						if (value == null) {
+							if (mPair != null && !TextUtils.isEmpty(mPair.value())) {
+								try {
+									value = Integer.parseInt(mPair.value());
+								} catch (Exception e) {
+									value = 0;
+								}
+							} else
+								value = 0;
+						}
+						mFields.get(i).setInt(t, Integer.parseInt(String.valueOf(value)));
+					} else if (String.class == mFields.get(i).getType()) {
+						if (value == null) {
+							if (mPair != null && mPair.value() != null) {
+								value = mPair.value();
+							} else
+								value = "";
+						}
+						mFields.get(i).set(t, String.valueOf(value));
+					}
+				}
+			} catch (InstantiationException e) {
+				Log.w(Broid.TAG, null, e);
+			} catch (IllegalAccessException e) {
+				Log.w(Broid.TAG, null, e);
+			}
+
+			return t;
+		}
+	}
+
+	public final void save(T c) {
+		synchronized (LOCK) {
+			Editor editor = mSharedPreferences.edit();
+			for (int i = 0; i < mSize; i++) {
+				try {
+					mFields.get(i).setAccessible(true);
+					if (boolean.class == mFields.get(i).getType()) {
+						editor.putBoolean(mFields.get(i).getName(), mFields.get(i).getBoolean(c));
+					} else if (long.class == mFields.get(i).getType()) {
+						editor.putLong(mFields.get(i).getName(), mFields.get(i).getLong(c));
+					} else if (float.class == mFields.get(i).getType()) {
+						editor.putFloat(mFields.get(i).getName(), mFields.get(i).getFloat(c));
+					} else if (int.class == mFields.get(i).getType()) {
+						editor.putInt(mFields.get(i).getName(), mFields.get(i).getInt(c));
+					} else if (String.class == mFields.get(i).getType()) {
+						editor.putString(mFields.get(i).getName(), String.valueOf(mFields.get(i).get(c)));
+					}
+				} catch (IllegalAccessException e) {
+					Log.w(Broid.TAG, null, e);
+				}
+			}
+			editor.commit();
+		}
+	}
 }

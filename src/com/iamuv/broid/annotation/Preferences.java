@@ -21,11 +21,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.TYPE)
-    public @interface Preferences {
+@Target(ElementType.TYPE)
+public @interface Preferences {
 	// 配置文件打开模式
 	public String mode() default "PRIVATE";
-
-    }
-
-    
+	// 配置文件名
+	public String name() default "";
+}

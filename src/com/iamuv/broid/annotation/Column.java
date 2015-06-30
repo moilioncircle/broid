@@ -21,8 +21,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-    @Target(ElementType.FIELD)
-    public @interface Column {
+@Target(ElementType.FIELD)
+public @interface Column {
 
 	// 数据库字段默认值
 	public String value() default "";
@@ -30,8 +30,4 @@ import java.lang.annotation.Target;
 	// 是否为自增主键
 	public boolean isAutoKey() default false;
 
-	public boolean ignore() default false;
-
-    }
-
-    
+}

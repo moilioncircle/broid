@@ -15,6 +15,8 @@
  */
 package com.iamuv.broid;
 
+import com.alibaba.fastjson.JSON;
+
 import android.text.TextUtils;
 
 /**
@@ -26,89 +28,107 @@ import android.text.TextUtils;
  */
 public class Log {
 
-    private Log() {}
+	private Log() {}
 
-    public static void w(String tag, String msg, Throwable tr) {
-	if (TextUtils.isEmpty(msg)) {
-	    android.util.Log.w(tag, android.util.Log.getStackTraceString(tr));
-	} else if (tr == null) {
-	    android.util.Log.w(tag, msg);
-	} else
-	    android.util.Log.w(tag, msg, tr);
-    }
-
-    public static void w(Object msg) {
-	if (msg instanceof Throwable) {
-	    w(Broid.getPackageName(), null, (Throwable) msg);
-	} else
-	    w(Broid.getPackageName(), String.valueOf(msg), null);
-    }
-
-    public static void e(String tag, String msg, Throwable tr) {
-	if (TextUtils.isEmpty(msg)) {
-	    android.util.Log.e(tag, android.util.Log.getStackTraceString(tr));
-	} else if (tr == null) {
-	    android.util.Log.e(tag, msg);
-	} else
-	    android.util.Log.e(tag, msg, tr);
-    }
-
-    public static void e(Object msg) {
-	if (msg instanceof Throwable) {
-	    e(Broid.getPackageName(), null, (Throwable) msg);
-	} else
-	    e(Broid.getPackageName(), String.valueOf(msg), null);
-    }
-
-    public static void i(String tag, String msg, Throwable tr) {
-	if (TextUtils.isEmpty(msg)) {
-	    android.util.Log.i(tag, android.util.Log.getStackTraceString(tr));
-	} else if (tr == null) {
-	    android.util.Log.i(tag, msg);
-	} else
-	    android.util.Log.i(tag, msg, tr);
-    }
-
-    public static void i(Object msg) {
-	if (msg instanceof Throwable) {
-	    i(Broid.getPackageName(), null, (Throwable) msg);
-	} else
-	    i(Broid.getPackageName(), String.valueOf(msg), null);
-    }
-
-    public static void d(String tag, String msg, Throwable tr) {
-	if (Broid.getDebugMode()) {
-	    if (TextUtils.isEmpty(msg)) {
-		android.util.Log.d(tag, android.util.Log.getStackTraceString(tr));
-	    } else if (tr == null) {
-		android.util.Log.d(tag, msg);
-	    } else
-		android.util.Log.d(tag, msg, tr);
+	public static void w(String tag, String msg, Throwable tr) {
+		if (TextUtils.isEmpty(msg)) {
+			android.util.Log.w(tag, android.util.Log.getStackTraceString(tr));
+		} else if (tr == null) {
+			android.util.Log.w(tag, msg);
+		} else
+			android.util.Log.w(tag, msg, tr);
 	}
-    }
 
-    public static void d(Object msg) {
-	if (msg instanceof Throwable) {
-	    d(getTag(), null, (Throwable) msg);
-	} else
-	    d(getTag(), String.valueOf(msg), null);
-    }
+	public static void w(Object msg) {
+		if (msg instanceof Throwable) {
+			w(Broid.getPackageName(), null, (Throwable) msg);
+		} else
+			w(Broid.getPackageName(), String.valueOf(msg), null);
+	}
 
-    private static String getTag() {
-	String tag = null;
-	for (StackTraceElement st : Thread.currentThread().getStackTrace()) {
-	    try {
-		if (!st.isNativeMethod() && !st.getClassName().equals(Log.class.getName())
-		    && !st.getClassName().equals(Thread.class.getName()) && !TextUtils.isEmpty(st.getClassName())
-		    && !TextUtils.isEmpty(st.getMethodName())) {
-		    tag = new StringBuilder(st.getClassName()).append('.').append(st.getMethodName()).append("(at ")
-			.append(st.getFileName()).append(':').append(st.getLineNumber()).append(')').toString();
-		    break;
+	public static void e(String tag, String msg, Throwable tr) {
+		if (TextUtils.isEmpty(msg)) {
+			android.util.Log.e(tag, android.util.Log.getStackTraceString(tr));
+		} else if (tr == null) {
+			android.util.Log.e(tag, msg);
+		} else
+			android.util.Log.e(tag, msg, tr);
+	}
+
+	public static void e(Object msg) {
+		if (msg instanceof Throwable)
+			e(null, (Throwable) msg);
+		else if (!(msg instanceof CharSequence) && msg instanceof Object)
+			e(JSON.toJSONString(msg), null);
+		else
+			e(String.valueOf(msg), null);
+	}
+
+	private static final void e(String msg, Throwable thr) {
+		e(Broid.getPackageName(), msg, thr);
+	}
+
+	public static void i(String tag, String msg, Throwable tr) {
+		if (TextUtils.isEmpty(msg)) {
+			android.util.Log.i(tag, android.util.Log.getStackTraceString(tr));
+		} else if (tr == null) {
+			android.util.Log.i(tag, msg);
+		} else
+			android.util.Log.i(tag, msg, tr);
+	}
+
+	public static void i(Object msg) {
+		if (msg instanceof Throwable)
+			i(null, (Throwable) msg);
+		else if (!(msg instanceof CharSequence) && msg instanceof Object)
+			i(JSON.toJSONString(msg), null);
+		else
+			i(String.valueOf(msg), null);
+	}
+
+	private static final void i(String msg, Throwable thr) {
+		i(Broid.getPackageName(), msg, thr);
+	}
+
+	public static void d(String tag, String msg, Throwable tr) {
+		if (Broid.getDebugMode()) {
+			if (TextUtils.isEmpty(msg)) {
+				android.util.Log.d(tag, android.util.Log.getStackTraceString(tr));
+			} else if (tr == null) {
+				android.util.Log.d(tag, msg);
+			} else
+				android.util.Log.d(tag, msg, tr);
 		}
-	    } catch (Exception e) {}
 	}
-	if (TextUtils.isEmpty(tag))
-	    tag = Broid.getPackageName();
-	return tag;
-    }
+
+	public static void d(Object msg) {
+		if (msg instanceof Throwable)
+			d(null, (Throwable) msg);
+		else if (!(msg instanceof CharSequence) && msg instanceof Object)
+			d(JSON.toJSONString(msg), null);
+		else
+			d(String.valueOf(msg), null);
+	}
+
+	private static final void d(String msg, Throwable thr) {
+		d(getTag(), msg, thr);
+	}
+
+	private static String getTag() {
+		String tag = null;
+		for (StackTraceElement st : Thread.currentThread().getStackTrace()) {
+			try {
+				if (!st.isNativeMethod() && !st.getClassName().equals(Log.class.getName())
+						&& !st.getClassName().equals(Thread.class.getName()) && !TextUtils.isEmpty(st.getClassName())
+						&& !TextUtils.isEmpty(st.getMethodName())) {
+					tag = new StringBuilder(st.getClassName()).append('.').append(st.getMethodName()).append("(at ")
+							.append(st.getFileName()).append(':').append(st.getLineNumber()).append(')').toString();
+					break;
+				}
+			} catch (Exception e) {}
+		}
+		if (TextUtils.isEmpty(tag))
+			tag = Broid.getPackageName();
+		return tag;
+	}
 }

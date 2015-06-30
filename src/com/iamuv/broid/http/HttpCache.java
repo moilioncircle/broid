@@ -24,193 +24,176 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.text.TextUtils;
 
 import com.iamuv.broid.Broid;
 import com.iamuv.broid.Log;
 
 public class HttpCache {
 
-    private static Object lock = new Object();
+	private static Object lock = new Object();
 
-    private static SQLiteOpenHelper mSqLiteOpenHelper;
+	private static SQLiteOpenHelper mSqLiteOpenHelper;
 
-    private static ConcurrentHashMap<String, WeakReference<Cache>> MEMORY_CACHE;
+	private static ConcurrentHashMap<String, WeakReference<Cache>> MEMORY_CACHE;
 
-    private static MemoryInfo mMemoryInfo;
+	private static MemoryInfo mMemoryInfo;
 
-    private static ActivityManager mActivityManager;
+	private static ActivityManager mActivityManager;
 
-    private volatile Cache mCache;
+	private volatile Cache mCache;
 
-    public HttpCache() {
-	init();
-    }
+	public HttpCache() {
+		init();
+	}
 
-    private static void init() {
-	if (mSqLiteOpenHelper == null) {
-	    mSqLiteOpenHelper = new SQLiteOpenHelper(Broid.getApplication(),
-		"broid_cache.sqlite", null, 1) {
+	private static void init() {
+		if (mSqLiteOpenHelper == null) {
+			mSqLiteOpenHelper = new SQLiteOpenHelper(Broid.getApplication(), "broid_cache.sqlite", null, 1) {
 
-		@Override
-		public void onUpgrade(SQLiteDatabase db, int oldVersion,
-		    int newVersion) {
+				@Override
+				public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
+
+				@Override
+				public void onCreate(SQLiteDatabase db) {
+					db.execSQL("CREATE TABLE IF NOT EXISTS broid_http_cache ( id TEXT PRIMARY KEY, result BLOB, cookie BLOB, time long, size long )");
+					db.execSQL("CREATE INDEX IF NOT EXISTS broid_http_cache_index ON broid_http_cache ( id, time, size )");
+				}
+			};
 		}
 
-		@Override
-		public void onCreate(SQLiteDatabase db) {
-		    db.execSQL("CREATE TABLE IF NOT EXISTS broid_http_cache ( id TEXT PRIMARY KEY, cache BLOB, time long, size long )");
-		    db.execSQL("CREATE INDEX IF NOT EXISTS broid_http_cache_index ON broid_http_cache ( id, time, size )");
+		if (MEMORY_CACHE == null) {
+			MEMORY_CACHE = new ConcurrentHashMap<String, WeakReference<Cache>>();
 		}
-	    };
+
+		if (mMemoryInfo == null) {
+			mMemoryInfo = new MemoryInfo();
+			mActivityManager = (ActivityManager) Broid.getApplication().getSystemService("activity");
+		}
+
 	}
 
-	if (MEMORY_CACHE == null) {
-	    MEMORY_CACHE = new ConcurrentHashMap<String, WeakReference<Cache>>();
+	public static void clear() {
+		init();
+		MEMORY_CACHE.clear();
+		synchronized (lock) {
+			SQLiteDatabase database = mSqLiteOpenHelper.getWritableDatabase();
+			try {
+				database.beginTransaction();
+				database.rawQuery("delete from broid_http_cache", null);
+				database.setTransactionSuccessful();
+			} catch (Exception e) {
+				Log.w(Broid.TAG, null, e);
+			} finally {
+				database.endTransaction();
+				if (database != null && database.isOpen())
+					database.close();
+			}
+		}
 	}
 
-	if (mMemoryInfo == null) {
-	    mMemoryInfo = new MemoryInfo();
-	    mActivityManager = (ActivityManager) Broid.getApplication()
-		.getSystemService("activity");
+	public HttpResult get(HttpRequestEntry entry) {
+		if (entry == null)
+			return null;
+		if (!entry.isCache())
+			return null;
+		WeakReference<Cache> cacheRef = MEMORY_CACHE.get(entry.getId());
+		if (cacheRef != null) {
+			mCache = cacheRef.get();
+			if (mCache != null) {
+				if (mCache.time < System.currentTimeMillis()) {
+					MEMORY_CACHE.remove(entry.getId());
+				} else {
+					return new HttpResult(mCache.result, mCache.cookie);
+				}
+			} else
+				MEMORY_CACHE.remove(entry.getId());
+		}
+		synchronized (lock) {
+			SQLiteDatabase database = mSqLiteOpenHelper.getReadableDatabase();
+			try {
+				database.beginTransaction();
+				database.delete("broid_http_cache", "time < ?", new String[] { String.valueOf(System.currentTimeMillis()) });
+				Cursor cursor = database.query("broid_http_cache", null, "id = ?", new String[] { String.valueOf(entry.getId()) }, null,
+						null, null);
+				try {
+					if (cursor.moveToFirst()) {
+						byte[] result = cursor.getBlob(cursor.getColumnIndex("result"));
+						byte[] cookie = cursor.getBlob(cursor.getColumnIndex("cookie"));
+						database.setTransactionSuccessful();
+						return new HttpResult(result, cookie);
+					}
+				} catch (Exception e) {
+					throw e;
+				} finally {
+					if (cursor != null && !cursor.isClosed())
+						cursor.close();
+				}
+			} catch (Exception e) {
+				Log.w(Broid.TAG, null, e);
+			} finally {
+				database.endTransaction();
+				if (database != null && database.isOpen())
+					database.close();
+			}
+			return null;
+		}
 	}
 
-    }
-
-    public static void clear() {
-	init();
-	MEMORY_CACHE.clear();
-	synchronized (lock) {
-	    SQLiteDatabase database = mSqLiteOpenHelper.getWritableDatabase();
-	    try {
-		database.beginTransaction();
-		database.rawQuery("delete from broid_http_cache", null);
-		database.setTransactionSuccessful();
-	    } catch (Exception e) {
-		Log.w(Broid.TAG, null, e);
-	    } finally {
-		database.endTransaction();
-		if (database != null && database.isOpen())
-		    database.close();
-	    }
-	}
-
-    }
-
-    public String get(HttpRequest request) {
-	if (request == null)
-	    return null;
-	if (!request.isCache())
-	    return null;
-	WeakReference<Cache> cacheRef = MEMORY_CACHE.get(request.getId());
-	if (cacheRef != null) {
-	    mCache = cacheRef.get();
-	    if (mCache != null) {
-		if (mCache.time < System.currentTimeMillis()) {
-		    MEMORY_CACHE.remove(request.getId());
+	public void save(HttpRequestEntry entry, HttpResult result) {
+		if (entry == null)
+			return;
+		mActivityManager.getMemoryInfo(mMemoryInfo);
+		if (mMemoryInfo.lowMemory) {
+			MEMORY_CACHE.clear();
+			Log.w(Broid.TAG, "the system considers itself to currently be in a low memory situation, http memory cache clear", null);
 		} else {
-		    return new String(mCache.cache);
+			mCache = new Cache();
+			try {
+				mCache.id = entry.getId();
+				mCache.cookie = result.getCookieByte();
+				mCache.result = result.getResultByte();
+				if (entry.getSession() < 1) {
+					throw new Exception("session is invalid");
+				}
+				mCache.time = System.currentTimeMillis() + entry.getSession() * 1000;
+				mCache.size = mCache.cookie.length + mCache.result.length;
+			} catch (Exception e) {
+				Log.w(Broid.TAG, null, e);
+				return;
+			}
+			MEMORY_CACHE.put(mCache.id, new WeakReference<Cache>(mCache));
+			Log.i(Broid.TAG, "http memory cache num is " + MEMORY_CACHE.size(), null);
 		}
-	    } else
-		MEMORY_CACHE.remove(request.getId());
-	}
-	synchronized (lock) {
-	    SQLiteDatabase database = mSqLiteOpenHelper.getReadableDatabase();
-	    try {
-		database.beginTransaction();
-		database
-		    .delete("broid_http_cache", "time < ?",
-			new String[] { String.valueOf(System
-			    .currentTimeMillis()) });
-		Cursor cursor = database.query("broid_http_cache", null,
-		    "id = ?", new String[] { String.valueOf(request.getId()) },
-		    null, null, null);
-		try {
-		    if (cursor.moveToFirst()) {
-			byte[] cache = cursor.getBlob(cursor
-			    .getColumnIndex("cache"));
-			database.setTransactionSuccessful();
-			return new String(cache);
-		    }
-		} catch (Exception e) {
-		    throw e;
-		} finally {
-		    if (cursor != null && !cursor.isClosed())
-			cursor.close();
+		synchronized (lock) {
+			SQLiteDatabase database = mSqLiteOpenHelper.getWritableDatabase();
+			try {
+				database.beginTransaction();
+				database.delete("broid_http_cache", "time < ?", new String[] { String.valueOf(System.currentTimeMillis()) });
+				ContentValues values = new ContentValues();
+				values.put("id", mCache.id);
+				values.put("result", mCache.result);
+				values.put("cookie", mCache.cookie);
+				values.put("time", mCache.time);
+				values.put("size", mCache.size);
+				if (database.update("broid_http_cache", values, " id = ? ", new String[] { mCache.id }) < 1)
+					database.insert("broid_http_cache", null, values);
+				database.setTransactionSuccessful();
+			} catch (Exception e) {
+				Log.w(Broid.TAG, null, e);
+			} finally {
+				database.endTransaction();
+				if (database != null && database.isOpen())
+					database.close();
+			}
 		}
-	    } catch (Exception e) {
-		Log.w(Broid.TAG, null, e);
-	    } finally {
-		database.endTransaction();
-		if (database != null && database.isOpen())
-		    database.close();
-	    }
-	    return null;
 	}
-    }
 
-    public void save(HttpRequest request, String result) {
-	if (request == null || TextUtils.isEmpty(result))
-	    return;
-	if (!request.isCache())
-	    return;
-	mActivityManager.getMemoryInfo(mMemoryInfo);
-	if (mMemoryInfo.lowMemory) {
-	    MEMORY_CACHE.clear();
-	    Log.w(
-		Broid.TAG,
-		"the system considers itself to currently be in a low memory situation, http memory cache clear",
-		null);
-	} else {
-	    mCache = new Cache();
-	    try {
-		mCache.id = request.getId();
-		mCache.cache = result.getBytes("UTF-8");
-		if (request.getSession() < 1) {
-		    throw new Exception("session is invalid");
-		}
-		mCache.time = System.currentTimeMillis() + request.getSession();
-		mCache.size = mCache.cache.length;
-	    } catch (Exception e) {
-		Log.w(Broid.TAG, null, e);
-		return;
-	    }
-	    MEMORY_CACHE.put(mCache.id, new WeakReference<Cache>(mCache));
-	    Log.i(Broid.TAG, "http memory cache num is " + MEMORY_CACHE.size(),
-		null);
+	class Cache {
+		String id;
+		byte[] result;
+		byte[] cookie;
+		long time;
+		long size;
 	}
-	synchronized (lock) {
-	    SQLiteDatabase database = mSqLiteOpenHelper.getWritableDatabase();
-	    try {
-		database.beginTransaction();
-		database
-		    .delete("broid_http_cache", "time < ?",
-			new String[] { String.valueOf(System
-			    .currentTimeMillis()) });
-		ContentValues values = new ContentValues();
-		values.put("id", mCache.id);
-		values.put("cache", mCache.cache);
-		values.put("time", mCache.time);
-		values.put("size", mCache.size);
-		if (database.update("broid_http_cache", values, " id = ? ",
-		    new String[] { mCache.id }) < 1)
-		    database.insert("broid_http_cache", null, values);
-		database.setTransactionSuccessful();
-	    } catch (Exception e) {
-		Log.w(Broid.TAG, null, e);
-	    } finally {
-		database.endTransaction();
-		if (database != null && database.isOpen())
-		    database.close();
-	    }
-	}
-    }
-
-    class Cache {
-	String id;
-	byte[] cache;
-	long time;
-	long size;
-    }
 
 }

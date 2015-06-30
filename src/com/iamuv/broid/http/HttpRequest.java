@@ -1,182 +1,162 @@
-/*
- * Copyright (C) 2014 The Broid Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package com.iamuv.broid.http;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Locale;
-import java.util.UUID;
+import java.util.HashMap;
 
-import org.apache.http.message.BasicNameValuePair;
+import com.iamuv.broid.annotation.Ignore;
 
-import android.text.TextUtils;
+public abstract class HttpRequest {
 
-import com.iamuv.broid.annotation.HttpRequestEntry;
-
-public class HttpRequest {
-
-    private String urlFieldName;
-
-    private Class<?> mType;
-
-    private RequestMethod mode;
-    private String url;
-    private int connTimeOut;
-    private int soTimeOut;
-    private boolean cache;
-    private long session;
-    private String charset;
-
-    private ArrayList<BasicNameValuePair> mParams;
-    private String mParamsStr;
-
-    private UUID id;
-
-    private volatile boolean interrupt;
-
-    public RequestMethod getMode() {
-	return mode;
-    }
-
-    public String getUrl() {
-	return url;
-    }
-
-    public ArrayList<BasicNameValuePair> getParams() {
-	return mParams;
-    }
-
-    public String getParamsStr() {
-	return mParamsStr;
-    }
-
-    public int getConnTimeOut() {
-	return connTimeOut;
-    }
-
-    public int getSoTimeOut() {
-	return soTimeOut;
-    }
-
-    public String getCharset() {
-	return charset;
-    }
-
-    public boolean isCache() {
-	return cache;
-    }
-
-    public long getSession() {
-	return session;
-    }
-
-    public String getId() {
-	return id.toString();
-    }
-
-    public enum RequestMethod {
-	GET, POST;
-    }
-
-    public void interrupt() {
-	interrupt = true;
-    }
-
-    public boolean isInterrupt() {
-	return interrupt;
-    }
-
-    public static final int MAX_CONNECTION_TIMEOUT = 30 * 1000;
-    public static final int MAX_SOCKET_TIMEOUT = 30 * 1000;
-
-    public HttpRequest(Object c) {
-	interrupt = false;
-	StringBuilder builder = null;
-	try {
-	    mType = c.getClass();
-	    HttpRequestEntry entry = mType.getAnnotation(HttpRequestEntry.class);
-	    if (entry != null) {
-		urlFieldName = entry.url();
-		session = entry.session();
-		if (TextUtils.isEmpty(urlFieldName))
-		    throw new Exception("do not set the url field name");
-		if (entry.mode().toUpperCase(Locale.getDefault()).indexOf("GET") == 0) {
-		    mode = RequestMethod.GET;
-		} else if (entry.mode().toUpperCase(Locale.getDefault()).indexOf("POST") == 0) {
-		    mode = RequestMethod.POST;
-		} else
-		    throw new Exception("can not read the mode '" + entry.mode() + "'");
-		if (TextUtils.isEmpty(entry.charset())) {
-		    charset = "UTF-8";
-		} else
-		    charset = entry.charset();
-		connTimeOut = entry.connectionTimeout() > HttpRequest.MAX_CONNECTION_TIMEOUT ? HttpRequest.MAX_CONNECTION_TIMEOUT
-		    : entry.connectionTimeout();
-		soTimeOut = entry.socketTimeout() > HttpRequest.MAX_SOCKET_TIMEOUT ? HttpRequest.MAX_SOCKET_TIMEOUT
-		    : entry.connectionTimeout();
-		cache = entry.cache();
-		builder = new StringBuilder("");
-		mParams = new ArrayList<BasicNameValuePair>();
-		BasicNameValuePair pair = null;
-		Object obj = null;
-		String name = null;
-		String value = null;
-		for (Field field : mType.getDeclaredFields()) {
-		    if (Modifier.isStatic(field.getModifiers()))
-			continue;
-		    if (field.getName().equals(urlFieldName)) {
-			obj = field.get(c);
-			if (obj != null) {
-			    url = String.valueOf(obj);
-			} else
-			    new Exception("http url is null");
-		    } else {
-			name = field.getName();
-			obj = field.get(c);
-			value = obj == null ? "" : new String(String.valueOf(obj).getBytes(), entry.charset());
-			pair = new BasicNameValuePair(name, value);
-			mParams.add(pair);
-			builder.append('&').append(name).append('=').append(value);
-		    }
-		}
-		if (builder.length() > 0)
-		    builder.setCharAt(0, '?');
-		mParamsStr = builder.toString();
-	    } else
-		throw new Exception("can not find the annotation 'HttpRequestEntry'");
-	    if (TextUtils.isEmpty(url))
-		throw new Exception("http url is null");
-	    builder = new StringBuilder();
-	    builder.append(getUrl()).append(getParamsStr()).append(getMode()).append(getConnTimeOut())
-		.append(getSoTimeOut()).append(getCharset()).append(getSession());
-	    id = UUID.nameUUIDFromBytes(builder.toString().getBytes("UTF-8"));
-	} catch (Exception e) {
-	    throw new RuntimeException(e);
+	public static enum Method {
+		POST, GET;
 	}
 
-    }
+	@Ignore
+	private boolean cache = true;
+	@Ignore
+	private String charset = "UTF-8";
+	@Ignore
+	private Method method = Method.GET;
+	@Ignore
+	private long session;
+	@Ignore
+	private int connTimeOut;
+	@Ignore
+	private int soTimeOut;
+	@Ignore
+	private String url;
+	@Ignore
+	private HashMap<String, String> cookie = new HashMap<String, String>();
 
-    @Override
-    public boolean equals(Object o) {
-	if (o instanceof HttpRequest) {
-	    HttpRequest entry = (HttpRequest) o;
-	    return (entry.getId().equals(getId()));
-	} else
-	    return false;
-    }
+	/**
+	 * 是否使用http缓存
+	 * @return
+	 */
+	public boolean isCache() {
+		return cache;
+	}
+
+	/**
+	 * 设置是否使用http缓存
+	 * @param cache
+	 */
+	public void setCache(boolean cache) {
+		this.cache = cache;
+	}
+
+	/**
+	 * http请求字符集 默认为UTF-8
+	 * @return 
+	 */
+	public String getCharset() {
+		return charset;
+	}
+
+	/**
+	 * 设置http请求字符集 默认为UTF-8
+	 */
+	public void setCharset(String charset) {
+		this.charset = charset;
+	}
+
+	/**
+	 * http请求方法
+	 * @return
+	 */
+	public Method getMethod() {
+		return method;
+	}
+
+	/**
+	 * 设置Http请求方法
+	 * @param method
+	 */
+	public void setMethod(Method method) {
+		this.method = method;
+	}
+
+	/**
+	 * 获取http缓存留存时间 单位是秒
+	 * @return
+	 */
+	public long getHttpCacheSession() {
+		return session;
+	}
+
+	/**
+	 * 设置http缓存留存时间 单位是秒
+	 * @return
+	 */
+	public void setHttpCacheSession(long session) {
+		this.session = session;
+	}
+
+	/**
+	 * 获取连接超时时间 单位为毫秒
+	 * @return
+	 */
+	public int getConnTimeOut() {
+		return connTimeOut;
+	}
+
+	/**
+	 * 设置连接超时时间 单位为毫秒
+	 * @return
+	 */
+	public void setConnTimeOut(int connTimeOut) {
+		this.connTimeOut = connTimeOut;
+	}
+
+	/**
+	 * 获取读取超时时间 单位为毫秒
+	 * @return
+	 */
+	public int getSoTimeOut() {
+		return soTimeOut;
+	}
+
+	/**
+	 * 设置读取超时时间 单位为毫秒
+	 * @return
+	 */
+	public void setSoTimeOut(int soTimeOut) {
+		this.soTimeOut = soTimeOut;
+	}
+
+	/**
+	 * 请求地址
+	 * @return
+	 */
+	public String getUrl() {
+		return url;
+	}
+
+	/**
+	 * 设置请求地址
+	 * @return
+	 */
+	public void setUrl(String url) {
+		this.url = url;
+	}
+
+	public HashMap<String, String> getCookie() {
+		return cookie;
+	}
+
+	public void setCookie(HashMap<String, String> cookie) {
+		if (cookie != null)
+			this.cookie = cookie;
+	}
+
+	public void addCookie(String key, String value) {
+		this.cookie.put(key, value);
+	}
+
+	public void clearCookie() {
+		this.cookie.clear();
+	}
+
+	public void addCookie(HashMap<String, String> cookie) {
+		this.cookie.putAll(cookie);
+	}
 
 }

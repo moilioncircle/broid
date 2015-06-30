@@ -19,39 +19,39 @@ import android.content.Context;
 
 public class SystemUtils {
 
-    public static int getDefaultThreadPoolSize() {
-	int availableProcessors = getAvailableProcessors();
-	return 2 * availableProcessors < 1 ? 1 : availableProcessors + 1;
-    }
-
-    public static int getDefaultThreadPoolSize(int max) {
-	int threadPoolSize = getDefaultThreadPoolSize();
-	return threadPoolSize > max ? max : threadPoolSize;
-    }
-
-    public static int getAvailableProcessors() {
-	return Runtime.getRuntime().availableProcessors();
-    }
-
-    public static float dpToPx(Context context, float dp) {
-	if (context == null) {
-	    return -1;
+	public static int getDefaultThreadPoolSize() {
+		int availableProcessors = getAvailableProcessors();
+		return 2 * availableProcessors < 1 ? 1 : availableProcessors + 1;
 	}
-	return dp * context.getResources().getDisplayMetrics().density;
-    }
 
-    public static float pxToDp(Context context, float px) {
-	if (context == null) {
-	    return -1;
+	public static int getDefaultThreadPoolSize(int max) {
+		int threadPoolSize = getDefaultThreadPoolSize();
+		return threadPoolSize > max ? max : threadPoolSize;
 	}
-	return px / context.getResources().getDisplayMetrics().density;
-    }
 
-    public static float dpToPxInt(Context context, float dp) {
-	return (int) (dpToPx(context, dp) + 0.5f);
-    }
+	public static int getAvailableProcessors() {
+		return Runtime.getRuntime().availableProcessors();
+	}
 
-    public static float pxToDpCeilInt(Context context, float px) {
-	return (int) (pxToDp(context, px) + 0.5f);
-    }
+	public static float dpToPx(Context context, float dp) {
+		if (context == null) {
+			return -1;
+		}
+		return dp * context.getResources().getDisplayMetrics().density;
+	}
+
+	public static float pxToDp(Context context, float px) {
+		if (context == null) {
+			return -1;
+		}
+		return px / context.getResources().getDisplayMetrics().density;
+	}
+
+	public static float dpToPxInt(Context context, float dp) {
+		return (int) (dpToPx(context, dp) + 0.5f);
+	}
+
+	public static float pxToDpCeilInt(Context context, float px) {
+		return (int) (pxToDp(context, px) + 0.5f);
+	}
 }

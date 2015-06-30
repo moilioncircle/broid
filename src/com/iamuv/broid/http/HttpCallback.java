@@ -17,6 +17,7 @@ package com.iamuv.broid.http;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.HashMap;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -25,6 +26,7 @@ import com.alibaba.fastjson.JSON;
 import com.iamuv.broid.Broid;
 import com.iamuv.broid.Log;
 import com.iamuv.broid.utils.EmptyUtils;
+import com.umeng.analytics.MobclickAgent;
 
 /**
  * Http短时异步请求回调 此类的回调方法与初始化方法为同一线程
@@ -37,148 +39,151 @@ import com.iamuv.broid.utils.EmptyUtils;
  */
 public abstract class HttpCallback<Result> {
 
-    private Class<?> mType;
-    private Handler mHandler;
-    private Result mResult;
-    private Object mTag;
-    private boolean flag;
+	private Class<?> mType;
+	private Handler mHandler;
+	private Result mResult;
+	private HashMap<String, String> mCookies;
+	private Object mTag;
+	private boolean flag;
 
-    @SuppressWarnings("unchecked")
-    public HttpCallback() {
-	mHandler = currentHandler();
-	flag = false;
-	try {
-	    mType = (Class<Result>) ((ParameterizedType) this.getClass().getGenericSuperclass())
-		.getActualTypeArguments()[0];
-	} catch (Exception e) {
-	    mType = null;
-	}
-	if (mType == null) {
-	    try {
-		Type type = this.getClass().getGenericSuperclass();
-		String typeName = type.toString();
-		int i = typeName.indexOf("java.util.List");
-		if (i != -1) {
-		    typeName = typeName.substring(i + 15, typeName.length() - 2);
-		    if (!EmptyUtils.isEmpty(EmptyUtils.getUnNullString(typeName))) {
-			mType = Class.forName(typeName);
-			flag = true;
-		    } else
-			throw new Exception();
-		} else
-		    throw new Exception();
-	    } catch (Exception e) {
-		Log.w(Broid.TAG, null, e);
-		mType = null;
-	    }
-	}
-
-    }
-
-    protected abstract void onComplete(Result result);
-
-    protected abstract void onError(Part part, Throwable tr);
-
-    protected void onCancel() {}
-
-    public final Class<?> getType() {
-	return mType;
-    }
-
-    @SuppressWarnings("unchecked")
-    protected Result processResult(String resultStr) throws Exception {
-	Log.d(Broid.TAG, "result is\r\n" + resultStr, null);
-	Result result = null;
-	try {
-	    if (mType == null)
-		throw new Exception("can not find the generic class type");
-	    if (resultStr == null)
-		throw new Exception("result is null");
-	    if (String.class == mType) {
-		result = (Result) resultStr;
-	    } else if (flag) {
-		result = (Result) JSON.parseArray(resultStr, mType);
-	    } else
-		result = (Result) JSON.parseObject(resultStr, mType);
-	    if (result == null)
-		throw new Exception("can not format result");
-	} catch (Exception e) {
-	    Log.w(Broid.TAG, null, e);
-	    throw e;
-	}
-	return result;
-
-    }
-
-    protected final void complete(String result) {
-	try {
-	    mResult = processResult(result);
-	    if (mHandler != null) {
-		mHandler.post(new Runnable() {
-
-		    @Override
-		    public void run() {
-			onComplete(mResult);
-		    }
-		});
-	    } else
-		onComplete(mResult);
-	} catch (Exception e) {
-	    Log.w(Broid.TAG, null, e);
-	    error(Part.CALLBACK, e);
-	}
-    }
-
-    protected final void cancel() {
-	try {
-	    if (mHandler != null) {
-		mHandler.post(new Runnable() {
-
-		    @Override
-		    public void run() {
-			onCancel();
-		    }
-		});
-	    } else
-		onCancel();
-	} catch (Exception e) {
-	    Log.w(Broid.TAG, null, e);
-	    error(Part.CALLBACK, e);
-	}
-    }
-
-    protected final void error(final Part part, final Throwable tr) {
-	if (mHandler != null) {
-	    mHandler.post(new Runnable() {
-
-		@Override
-		public void run() {
-		    onError(part, tr);
+	@SuppressWarnings("unchecked")
+	public HttpCallback() {
+		mHandler = currentHandler();
+		flag = false;
+		try {
+			mType = (Class<Result>) ((ParameterizedType) this.getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+		} catch (Exception e) {
+			mType = null;
 		}
-	    });
-	} else
-	    onError(part, tr);
-    }
+		if (mType == null) {
+			try {
+				Type type = this.getClass().getGenericSuperclass();
+				String typeName = type.toString();
+				int i = typeName.indexOf("java.util.List");
+				if (i != -1) {
+					typeName = typeName.substring(i + 15, typeName.length() - 2);
+					if (!EmptyUtils.isEmpty(EmptyUtils.getUnNullString(typeName))) {
+						mType = Class.forName(typeName);
+						flag = true;
+					} else
+						throw new Exception();
+				} else
+					throw new Exception();
+			} catch (Exception e) {
+				Log.w(Broid.TAG, null, e);
+				mType = null;
+			}
+		}
 
-    protected final static Handler currentHandler() {
-	try {
-	    Looper loop = Looper.myLooper();
-	    return loop == null ? null : new Handler(loop);
-	} catch (Exception e) {
-	    return null;
 	}
-    }
 
-    public enum Part {
-	PREPARE, REQUEST, CALLBACK;
-    }
+	protected abstract void onComplete(Result result, HashMap<String, String> cookies);
 
-    public void setTag(final Object tag) {
-	mTag = tag;
-    }
+	protected abstract void onError(Part part, Throwable tr);
 
-    public Object getTag() {
-	return mTag;
-    }
+	protected void onCancel() {}
+
+	public final Class<?> getType() {
+		return mType;
+	}
+
+	@SuppressWarnings("unchecked")
+	protected Result processResult(String resultStr) throws Exception {
+		Log.d(Broid.TAG, "result is\r\n" + resultStr, null);
+		Result result = null;
+		try {
+			if (mType == null)
+				throw new Exception("can not find the generic class type");
+			if (resultStr == null)
+				throw new Exception("result is null");
+			if (String.class == mType) {
+				result = (Result) resultStr;
+			} else if (flag) {
+				result = (Result) JSON.parseArray(resultStr, mType);
+			} else
+				result = (Result) JSON.parseObject(resultStr, mType);
+			if (result == null)
+				throw new Exception("can not format result");
+		} catch (Exception e) {
+			MobclickAgent.reportError(Broid.getApplication(), "processResult error\r\n" + "result string : " + resultStr + "\r\n type : "
+					+ mType.getName() + "\r\n" + android.util.Log.getStackTraceString(e));
+			Log.w(Broid.TAG, null, e);
+			throw e;
+		}
+		return result;
+
+	}
+
+	protected final void complete(HttpResult result) {
+		try {
+			mResult = processResult(result.mResult);
+			mCookies = result.mCookies;
+			if (mHandler != null) {
+				mHandler.post(new Runnable() {
+
+					@Override
+					public void run() {
+						onComplete(mResult, mCookies);
+					}
+				});
+			} else
+				onComplete(mResult, mCookies);
+		} catch (Exception e) {
+			Log.w(Broid.TAG, null, e);
+			error(Part.CALLBACK, e);
+		}
+	}
+
+	protected final void cancel() {
+		try {
+			if (mHandler != null) {
+				mHandler.post(new Runnable() {
+
+					@Override
+					public void run() {
+						onCancel();
+					}
+				});
+			} else
+				onCancel();
+		} catch (Exception e) {
+			Log.w(Broid.TAG, null, e);
+			error(Part.CALLBACK, e);
+		}
+	}
+
+	protected final void error(final Part part, final Throwable tr) {
+		if (mHandler != null) {
+			mHandler.post(new Runnable() {
+
+				@Override
+				public void run() {
+					onError(part, tr);
+				}
+			});
+		} else
+			onError(part, tr);
+	}
+
+	protected final static Handler currentHandler() {
+		try {
+			Looper loop = Looper.myLooper();
+			return loop == null ? null : new Handler(loop);
+		} catch (Exception e) {
+			return null;
+		}
+	}
+
+	public enum Part {
+		PREPARE, REQUEST, CALLBACK;
+	}
+
+	public void setTag(final Object tag) {
+		mTag = tag;
+	}
+
+	public Object getTag() {
+		return mTag;
+	}
 
 }

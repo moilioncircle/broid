@@ -28,35 +28,35 @@ import com.iamuv.broid.utils.SystemUtils;
 
 public class HttpAsynTask {
 
-    private final ThreadFactory mThreadFactory;
+	private final ThreadFactory mThreadFactory;
 
-    private final ExecutorService mExecutorService;
+	private final ExecutorService mExecutorService;
 
-    public HttpAsynTask() {
-	mThreadFactory = new HttpThreadFactory();
-	int size = SystemUtils.getDefaultThreadPoolSize(8);
-	Log.i(Broid.TAG, "the http core pool size is " + size, null);
-	mExecutorService = new ThreadPoolExecutor(size, size, 0L, TimeUnit.MILLISECONDS,
-		new LinkedBlockingQueue<Runnable>(), mThreadFactory);
+	public HttpAsynTask() {
+		mThreadFactory = new HttpThreadFactory();
+		int size = SystemUtils.getDefaultThreadPoolSize(8);
+		Log.i(Broid.TAG, "the http core pool size is " + size, null);
+		mExecutorService = new ThreadPoolExecutor(size, size, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>(),
+				mThreadFactory);
 
-    }
-
-    public final <T> Http<T> submit(T entry, HttpCallback<?> callback) {
-	final Http<T> http = new Http<T>(entry, callback);
-	mExecutorService.execute(http.getTask());
-	return http;
-    }
-
-    class HttpThreadFactory implements ThreadFactory {
-
-	private final AtomicInteger mCount = new AtomicInteger(1);
-
-	@Override
-	public Thread newThread(Runnable r) {
-	    Thread thread = new Thread(r, "http thread #" + mCount.getAndIncrement());
-	    Log.d(Broid.TAG, thread.getName() + " create", null);
-	    return thread;
 	}
-    }
+
+	public final  Http submit(HttpRequest request, HttpCallback<?> callback) {
+		final Http http = new Http(request, callback);
+		mExecutorService.execute(http.getTask());
+		return http;
+	}
+
+	class HttpThreadFactory implements ThreadFactory {
+
+		private final AtomicInteger mCount = new AtomicInteger(1);
+
+		@Override
+		public Thread newThread(Runnable r) {
+			Thread thread = new Thread(r, "http thread #" + mCount.getAndIncrement());
+			Log.d(Broid.TAG, thread.getName() + " create", null);
+			return thread;
+		}
+	}
 
 }
